@@ -3,6 +3,7 @@ import type { Project, Scene } from "@/lib/types";
 import type { StrokeSet } from "@/lib/stroke-trace";
 import { getStrokeReveal } from "@/lib/reveal";
 import { markerBarrelForInk, markerColorForStroke } from "@/lib/marker-style";
+import { visibleCaptionWords } from "@/lib/story";
 
 const paths = {
   portrait: ["M27 47c0-17 10-29 24-29 16 0 25 12 25 29 0 18-10 31-25 31S27 65 27 47Z", "M36 44c4-5 8-7 15-7 8 0 13 2 17 7", "M42 56h1m16 0h1M45 65c4 3 8 3 13 0"],
@@ -170,10 +171,9 @@ export default function SketchVideo({ project, selected }: { project: Project; s
   const progress = interpolate(localFrame, [0, drawWindow], [0, 100], { extrapolateRight: "clamp" });
   const strokeSet = scene.strokes;
   const reveal = getStrokeReveal(strokeSet, progress);
-  const captionIn = interpolate(localFrame, [fps * 1.2, fps * 1.7], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  const sceneProgress = localFrame / Math.max(1, scene.duration * fps);
+  const toldText = visibleCaptionWords(scene.caption.text, sceneProgress);
+  const captionIn = toldText ? 1 : 0;
 
   const tipX = reveal.tipPercent
     ? Math.min(90, Math.max(6, reveal.tipPercent.x))
@@ -184,7 +184,6 @@ export default function SketchVideo({ project, selected }: { project: Project; s
 
   const activeInk = markerColorForStroke(reveal.strokeIndex, scene.accent);
   const drawingSound = scene.effects.marker && reveal.isDrawing && !!strokeSet?.strokes.length;
-  // Louder — previous ~0.4 was nearly inaudible against silence
   const pencilVolume = 0.95;
 
   return (
@@ -219,10 +218,10 @@ export default function SketchVideo({ project, selected }: { project: Project; s
         <MarkerTip x={tipX} y={tipY} ink={activeInk} flip={scene.flip} visible={reveal.isDrawing && progress < 98} />
       )}
       <div
-        className="film-caption short-caption"
-        style={{ opacity: captionIn, transform: `translateY(${(1 - captionIn) * 18}px)` }}
+        className="film-caption short-caption story-caption"
+        style={{ opacity: captionIn, transform: `translateY(${(1 - captionIn) * 12}px)` }}
       >
-        <span>{scene.caption.text}</span>
+        <span>{toldText}</span>
       </div>
       {drawingSound && <Audio src="/sounds/pencil-scratch.wav" volume={pencilVolume} loop startFrom={0} />}
     </AbsoluteFill>

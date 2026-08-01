@@ -85,16 +85,16 @@ export default function Studio() {
         </div>
         <div className="setup-card">
           <div className="tape"/>
-          <div className="card-head"><span>01</span><div><small>NEW STORY</small><h2>What should we draw?</h2></div></div>
+          <div className="card-head"><span>01</span><div><small>NEW STORY</small><h2>Tell it, then draw it</h2></div></div>
           <label className="field-label">Story title<input value={title} onChange={e => setTitle(e.target.value)} placeholder="The summer everything changed" /></label>
-          <button className="dropzone" onClick={() => photoRef.current?.click()}><ImagePlus/><strong>{photos.length ? `${photos.length} memories added` : "Drop in your memories"}</strong><small>JPG, PNG or WEBP · up to 24 photos</small><span>Choose photos</span></button>
+          <label className="field-label">Your story<textarea value={notes} onChange={e => setNotes(e.target.value)} rows={6} placeholder={"This was me 10 years ago — scared and stuck.\n\nThen one moment changed everything.\n\nLooking back, that was the beginning."}/><small className="story-hint">One paragraph (or numbered beat) per scene. We’ll animate each drawing to that part of your story.</small></label>
+          <button className="dropzone" onClick={() => photoRef.current?.click()}><ImagePlus/><strong>{photos.length ? `${photos.length} drawings paired to your story` : "Add drawings for each beat"}</strong><small>JPG, PNG or WEBP · 1st drawing → 1st paragraph</small><span>Choose drawings</span></button>
           <input ref={photoRef} hidden type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => upload(e.target.files, "photo")}/>
-          {photos.length > 0 && <div className="photo-strip">{photos.map((p, i) => <div key={p}><img src={p} alt={`memory ${i + 1}`}/><button onClick={() => setPhotos(x => x.filter(v => v !== p))}><X/></button></div>)}</div>}
-          <button className={`voice-drop ${audio ? "added" : ""}`} onClick={() => audioRef.current?.click()}><Mic/><span><strong>{audio ? "Your voice is ready" : "Add your narration"}</strong><small>{audio ? "Tap to replace the recording" : "Upload MP3, WAV, M4A or WEBM"}</small></span>{audio && <Check/>}</button>
+          {photos.length > 0 && <div className="photo-strip">{photos.map((p, i) => <div key={p}><img src={p} alt={`beat ${i + 1}`}/><em className="beat-tag">{i + 1}</em><button onClick={() => setPhotos(x => x.filter(v => v !== p))}><X/></button></div>)}</div>}
+          <button className={`voice-drop ${audio ? "added" : ""}`} onClick={() => audioRef.current?.click()}><Mic/><span><strong>{audio ? "Your voice is ready" : "Optional: add your voice"}</strong><small>{audio ? "Tap to replace the recording" : "Upload MP3, WAV, M4A or WEBM — or just use the story text on screen"}</small></span>{audio && <Check/>}</button>
           <input ref={audioRef} hidden type="file" accept="audio/*" onChange={e => upload(e.target.files, "audio")}/>
-          <label className="field-label">Notes for the editor<textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4}/></label>
           <label className="consent"><input type="checkbox" defaultChecked/><span>I have permission to use these photos and audio.</span></label>
-          <button className="generate" onClick={generate} disabled={busy}><WandSparkles/>{busy ? "Shaping your first cut…" : "Make my first cut"}<ChevronRight/></button>
+          <button className="generate" onClick={generate} disabled={busy}><WandSparkles/>{busy ? "Animating your story…" : "Animate my story"}<ChevronRight/></button>
           <p className="local-note">⌂ Your originals stay on this machine.</p>
         </div>
       </section>

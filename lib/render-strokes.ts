@@ -4,6 +4,7 @@ import sharp from "sharp";
 import type { StrokeSet } from "./stroke-trace";
 import { strokeProgressAt } from "./stroke-trace";
 import { MARKER, markerBarrelForInk, markerColorForStroke } from "./marker-style";
+import { visibleCaptionWords } from "./story";
 
 /** Rasterize stroke-by-stroke frames onto a 1080×1920 whiteboard for ffmpeg. */
 export async function renderStrokeFrames(options: {
@@ -81,19 +82,24 @@ export async function renderStrokeFrames(options: {
           </g>`
         : "";
 
-    const captionOpacity = Math.max(0, Math.min(1, (f / fps - 1.2) / 0.45));
+    const sceneProgress = f / Math.max(1, frameCount - 1);
+    const told = options.caption ? visibleCaptionWords(options.caption, sceneProgress) : "";
     const titleOpacity = Math.max(0, (progress01 - 0.68) / 0.2);
     const label = options.sceneLabel
       ? `<text x="48" y="64" font-family="Comic Sans MS, Marker Felt, cursive" font-size="26" fill="#5a5a5a">${escapeXml(options.sceneLabel)}</text>`
       : "";
     const title = options.title
-      ? `<text x="540" y="${height - 280}" text-anchor="middle" font-family="Comic Sans MS, Marker Felt, cursive" font-size="44" font-weight="700" fill="${MARKER.black}" opacity="${titleOpacity}">${escapeXml(options.title)}</text>`
+      ? `<text x="540" y="${height - 300}" text-anchor="middle" font-family="Comic Sans MS, Marker Felt, cursive" font-size="40" font-weight="700" fill="${MARKER.black}" opacity="${titleOpacity}">${escapeXml(options.title)}</text>`
       : "";
-    const caption = options.caption
-      ? `<text x="540" y="${height - 150}" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="${MARKER.black}" opacity="${captionOpacity}">
-          <tspan fill="${MARKER.board}" stroke="${MARKER.board}" stroke-width="16" paint-order="stroke">${escapeXml(truncate(options.caption, 70))}</tspan>
-        </text>`
-      : "";
+    const captionLines = wrapCaption(told, 34);
+    const caption = captionLines
+      .map((line, i) => {
+        const y = height - 200 + i * 42;
+        return `<text x="540" y="${y}" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="${MARKER.black}">
+          <tspan fill="${MARKER.board}" stroke="${MARKER.board}" stroke-width="16" paint-order="stroke">${escapeXml(line)}</tspan>
+        </text>`;
+      })
+      .join("");
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -134,6 +140,25 @@ function escapeXml(value: string) {
     .replaceAll('"', "&quot;");
 }
 
-function truncate(value: string, max: number) {
-  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+function wrapCaption(value: string, maxChars: number): string[] {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+      if (lines.length >= 3) break;
+    } else {
+      current = next;
+    }
+  }
+  if (current && lines.length < 3) lines.push(current);
+  if (words.join(" ").length > lines.join(" ").length) {
+    const last = lines[lines.length - 1];
+    if (last) lines[lines.length - 1] = `${last.replace(/\s+\S*$/, "")}…`;
+  }
+  return lines;
 }

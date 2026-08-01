@@ -1,0 +1,9 @@
+.DS_Store
+.next/
+node_modules/
+data/*.json
+public/uploads/*
+!public/uploads/.gitkeep
+public/exports/*
+!public/exports/.gitkeep
+tsconfig.tsbuildinfo

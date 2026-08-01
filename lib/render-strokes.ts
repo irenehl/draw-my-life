@@ -65,9 +65,9 @@ export async function renderStrokeFrames(options: {
       })
       .join("");
 
+    // When a color sketch exists, reveal THAT image — don't rainbow-overlay extra strokes on top
     const drawing = sketchHref
-      ? `<image href="${sketchHref}" x="0" y="0" width="${options.strokeSet.width}" height="${options.strokeSet.height}" preserveAspectRatio="xMidYMid meet" mask="url(#drawMask)"/>
-         <g opacity="0.35">${coloredInk}</g>`
+      ? `<image href="${sketchHref}" x="0" y="0" width="${options.strokeSet.width}" height="${options.strokeSet.height}" preserveAspectRatio="xMidYMid meet" mask="url(#drawMask)"/>`
       : coloredInk;
 
     // Just the marker tip — no hand (classic overhead DML look often crops to tip)

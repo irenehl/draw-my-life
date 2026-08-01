@@ -88,22 +88,22 @@ function StrokeSketch({
           />
         ) : null}
 
-        {/* Colored marker overlay — dry-erase accents like real Draw My Life boards */}
-        {strokeSet.strokes.map((stroke, i) => (
-          <path
-            key={`c-${i}`}
-            d={stroke.d}
-            fill="none"
-            stroke={markerColorForStroke(i, scene.accent)}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={Math.max(1.6, brush * (sketchUrl ? 0.28 : 0.45))}
-            pathLength="100"
-            strokeDasharray="100"
-            strokeDashoffset={reveal.dashFor(i)}
-            opacity={sketchUrl ? 0.4 : 1}
-          />
-        ))}
+        {/* Fallback colored marker strokes when there is no sketch image to reveal */}
+        {!sketchUrl &&
+          strokeSet.strokes.map((stroke, i) => (
+            <path
+              key={`c-${i}`}
+              d={stroke.d}
+              fill="none"
+              stroke={markerColorForStroke(i, scene.accent)}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={Math.max(1.6, brush * 0.45)}
+              pathLength="100"
+              strokeDasharray="100"
+              strokeDashoffset={reveal.dashFor(i)}
+            />
+          ))}
       </svg>
     </div>
   );

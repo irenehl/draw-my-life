@@ -2,18 +2,58 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { Check, ChevronLeft, ChevronRight, Download, Eye, EyeOff, GripVertical, Music2, Pause, Play, RefreshCw, Sparkles, Volume2 } from "lucide-react";
-import type { Project, Scene } from "@/lib/types";
+import type { Project, Scene, VideoFormat } from "@/lib/types";
+import { frameSize } from "@/lib/format";
 import { hydrateProjectStrokes } from "@/lib/strokes-client";
 import SketchVideo from "./SketchVideo";
 
-type Props = { project: Project; setProject: React.Dispatch<React.SetStateAction<Project>>; onBack: ()=>void; onSave: (project?:Project)=>Promise<void>; onRender: ()=>Promise<void>; rendering:boolean };
-export default function FilmEditor({project,setProject,onBack,onSave,onRender,rendering}:Props){
-  const [selected,setSelected]=useState(0); const [playing,setPlaying]=useState(false); const [playhead,setPlayhead]=useState(0); const player=useRef<PlayerRef>(null);
-  const enabled=useMemo(()=>project.scenes.filter(s=>s.enabled),[project.scenes]); const total=enabled.reduce((n,s)=>n+s.duration,0); const scene=project.scenes[selected]||project.scenes[0];
-  const startOf=(index:number)=>project.scenes.slice(0,index).filter(s=>s.enabled).reduce((n,s)=>n+s.duration,0);
-  const patchScene=(id:string,patch:Partial<Scene>)=>setProject(p=>({...p,scenes:p.scenes.map(s=>s.id===id?{...s,...patch}:s)}));
-  const seekScene=(index:number)=>{setSelected(index);const seconds=startOf(index);setPlayhead(seconds);player.current?.seekTo(Math.round(seconds*30))};
-  const regenerate=(s:Scene)=>{const styles=["portrait","timeline","thought","map"] as const;const accents=["#d84d38","#2c68a2","#dd9b18","#377961"];const revision=s.revision+1;patchScene(s.id,{revision,style:styles[(styles.indexOf(s.style||"portrait")+1)%styles.length],accent:accents[revision%accents.length],crop:((s.crop||0)+1)%3,flip:!s.flip,effects:{marker:true,paper:revision%2===0,zoom:revision%3!==0}});player.current?.seekTo(Math.round(startOf(selected)*30))};
+type Props = {
+  project: Project;
+  setProject: React.Dispatch<React.SetStateAction<Project>>;
+  onBack: () => void;
+  onSave: (project?: Project) => Promise<void>;
+  onRender: () => Promise<void>;
+  rendering: boolean;
+};
+
+export default function FilmEditor({ project, setProject, onBack, onSave, onRender, rendering }: Props) {
+  const [selected, setSelected] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [playhead, setPlayhead] = useState(0);
+  const player = useRef<PlayerRef>(null);
+  const format = project.format ?? "vertical";
+  const size = frameSize(format);
+  const enabled = useMemo(() => project.scenes.filter(s => s.enabled), [project.scenes]);
+  const total = enabled.reduce((n, s) => n + s.duration, 0);
+  const scene = project.scenes[selected] || project.scenes[0];
+  const startOf = (index: number) =>
+    project.scenes.slice(0, index).filter(s => s.enabled).reduce((n, s) => n + s.duration, 0);
+  const patchScene = (id: string, patch: Partial<Scene>) =>
+    setProject(p => ({ ...p, scenes: p.scenes.map(s => (s.id === id ? { ...s, ...patch } : s)) }));
+  const seekScene = (index: number) => {
+    setSelected(index);
+    const seconds = startOf(index);
+    setPlayhead(seconds);
+    player.current?.seekTo(Math.round(seconds * 30));
+  };
+  const regenerate = (s: Scene) => {
+    const styles = ["portrait", "timeline", "thought", "map"] as const;
+    const accents = ["#d84d38", "#2c68a2", "#dd9b18", "#377961"];
+    const revision = s.revision + 1;
+    patchScene(s.id, {
+      revision,
+      style: styles[(styles.indexOf(s.style || "portrait") + 1) % styles.length],
+      accent: accents[revision % accents.length],
+      crop: ((s.crop || 0) + 1) % 3,
+      flip: !s.flip,
+      effects: { marker: true, paper: revision % 2 === 0, zoom: revision % 3 !== 0 },
+    });
+    player.current?.seekTo(Math.round(startOf(selected) * 30));
+  };
+  const setFormat = (next: VideoFormat) => {
+    setProject(p => ({ ...p, format: next }));
+    player.current?.seekTo(Math.round(playhead * 30));
+  };
   const strokeKey = useMemo(() => project.scenes.map(s => s.strokesUrl || "").join("|"), [project.scenes]);
   useEffect(() => {
     let cancelled = false;
@@ -26,15 +66,317 @@ export default function FilmEditor({project,setProject,onBack,onSave,onRender,re
       cancelled = true;
     };
   }, [project.id, strokeKey]);
-  useEffect(()=>{if(!playing)return;const timer=window.setInterval(()=>{const seconds=(player.current?.getCurrentFrame()||0)/30;setPlayhead(seconds);let cursor=0;for(const s of project.scenes){if(!s.enabled)continue;if(seconds<cursor+s.duration){setSelected(project.scenes.indexOf(s));break}cursor+=s.duration}if(seconds>=total-.1)setPlaying(false)},100);return()=>window.clearInterval(timer)},[playing,project.scenes,total]);
-  const toggle=()=>{playing?player.current?.pause():player.current?.play();setPlaying(!playing)};
-  return <main className="studio genuine-studio">
-    <header className="studio-bar"><button className="brand-button" onClick={onBack}><ChevronLeft/> LIFE, DRAWN</button><div className="project-name"><small>EDITING</small><input value={project.title} onChange={e=>setProject(p=>({...p,title:e.target.value}))}/><span>Local project · v{project.version}</span></div><div className="bar-actions"><button onClick={()=>onSave()}><Check/> Save</button>{project.exportUrl?<a className="export" href={project.exportUrl} download><Download/> Download MP4</a>:<button className="export" onClick={onRender} disabled={rendering}><Download/>{rendering?"Rendering…":"Export film"}</button>}</div></header>
-    <div className="workspace">
-      <aside className="scene-list"><div className="aside-head"><div><small>STORYBOARD</small><h2>{project.scenes.length} scenes · {Math.round(total)}s</h2></div></div><div className="scene-scroll">{project.scenes.map((s,i)=><button key={s.id} className={`scene-row ${selected===i?"active":""} ${!s.enabled?"off":""}`} onClick={()=>seekScene(i)}><GripVertical className="grip"/><span className="scene-number">{String(i+1).padStart(2,"0")}</span><div className="thumb">{s.photoUrl?<img src={s.photoUrl} alt=""/>:<b>✎</b>}<i style={{background:s.accent}}/></div><div className="scene-meta"><small>{s.strokesUrl?"stroke draw":s.style||"portrait"}</small><strong>{s.title}</strong><span>{s.duration}s · v{s.revision}</span></div><span className="scene-check">{s.enabled?"✓":"—"}</span></button>)}</div><button className="regen-all" onClick={()=>setProject(p=>({...p,scenes:p.scenes.map((s,i)=>({...s,revision:s.revision+1,style:(["portrait","timeline","thought","map"] as const)[(i+s.revision+1)%4],crop:(i+s.revision)%3,flip:!s.flip}))}))}><RefreshCw/> Recompose full draft</button></aside>
-      <section className="preview-area"><div className="preview-top"><span>YOUTUBE SHORT · 9:16 DRAW CUT</span><button onClick={()=>{player.current?.seekTo(0);setPlayhead(0);setSelected(0)}}>Restart</button></div><div className="phone-wrap short-stage"><div className="phone-shadow"/><div className="short-chrome"><span>Shorts</span><b>LIFE, DRAWN</b></div><Player ref={player} component={SketchVideo} inputProps={{project}} durationInFrames={Math.max(1,Math.round(total*30))} compositionWidth={1080} compositionHeight={1920} fps={30} controls={false} className="player short-player"/><div className="short-rail"><i/><i/><i/></div></div><div className="transport"><button aria-label="Previous scene" onClick={()=>seekScene(Math.max(0,selected-1))}><ChevronLeft/></button><button className="play" aria-label={playing?"Pause full video":"Play full video"} onClick={toggle}>{playing?<Pause fill="currentColor"/>:<Play fill="currentColor"/>}</button><button aria-label="Next scene" onClick={()=>seekScene(Math.min(project.scenes.length-1,selected+1))}><ChevronRight/></button><span><b>{Math.floor(playhead/60)}:{String(Math.floor(playhead%60)).padStart(2,"0")}</b> / {Math.floor(total/60)}:{String(Math.round(total%60)).padStart(2,"0")}</span><div className="wave">{Array.from({length:34},(_,i)=><i key={i} className={i/34<playhead/total?"heard":""} style={{height:5+(i*17)%19}}/> )}</div><Volume2/></div></section>
-      <aside className="inspector">{scene&&<><div className="inspector-title"><small>SCENE {selected+1} · {scene.style||"portrait"}</small><h2>{scene.title}</h2><button onClick={()=>patchScene(scene.id,{enabled:!scene.enabled})}>{scene.enabled?<><Eye/> Visible</>:<><EyeOff/> Hidden</>}</button></div><section><label>Caption</label><textarea value={scene.caption.text} onChange={e=>patchScene(scene.id,{caption:{...scene.caption,text:e.target.value}})}/><div className="hint"><Sparkles/> One clear thought per scene.</div></section><section><div className="range-head"><label>Scene length</label><b>{scene.duration}s</b></div><input type="range" min="4" max="16" value={scene.duration} onChange={e=>patchScene(scene.id,{duration:Number(e.target.value)})}/></section><section><label>Composition</label><div className="style-picker">{(["portrait","timeline","thought","map"] as const).map(style=><button key={style} className={scene.style===style?"selected":""} onClick={()=>patchScene(scene.id,{style})}>{style}</button>)}</div></section><section><label>Drawing behavior</label>{([['marker','Marker tip + scratch SFX'],['paper','Erase ghosts'],['zoom','Slow camera push']] as const).map(([key,label])=><button className="toggle-row" key={key} onClick={()=>patchScene(scene.id,{effects:{...scene.effects,[key]:!scene.effects[key]}})}><span>{label}</span><b className={scene.effects[key]?"on":""}/></button>)}</section><section><label>Stroke draw</label><div className="hint"><Sparkles/>{scene.strokes?.strokes?.length?`Tracing your photo · ${scene.strokes.strokes.length} marker strokes`:`Upload a photo to draw it stroke by stroke.`}</div></section><section><div className="audio-title"><Music2/><span><label>Sound bed</label><small>Voice remains in front</small></span></div><select value={project.music} onChange={e=>setProject(p=>({...p,music:e.target.value as Project['music']}))}><option value="warm">Warm room + marker</option><option value="hopeful">Soft acoustic pulse</option><option value="none">Voice only</option></select></section><button className="regen-scene" onClick={()=>regenerate(scene)}><RefreshCw/> Regenerate composition <span>v{scene.revision}</span></button></>}</aside>
-    </div>
-    <div className="timeline"><div className="timeline-tools"><span>FULL STORY PLAYBACK</span><b>{Math.round(total)} seconds</b></div><div className="timeline-track">{enabled.map(s=><button key={s.id} style={{flex:s.duration,borderColor:s.accent}} onClick={()=>seekScene(project.scenes.indexOf(s))} className={project.scenes.indexOf(s)===selected?"selected":""}><span>{project.scenes.indexOf(s)+1}</span><b>{s.title}</b><i>{s.duration}s</i></button>)}</div></div>
-  </main>
+  useEffect(() => {
+    if (!playing) return;
+    const timer = window.setInterval(() => {
+      const seconds = (player.current?.getCurrentFrame() || 0) / 30;
+      setPlayhead(seconds);
+      let cursor = 0;
+      for (const s of project.scenes) {
+        if (!s.enabled) continue;
+        if (seconds < cursor + s.duration) {
+          setSelected(project.scenes.indexOf(s));
+          break;
+        }
+        cursor += s.duration;
+      }
+      if (seconds >= total - 0.1) setPlaying(false);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [playing, project.scenes, total]);
+  const toggle = () => {
+    playing ? player.current?.pause() : player.current?.play();
+    setPlaying(!playing);
+  };
+
+  return (
+    <main className={`studio genuine-studio format-${format}`}>
+      <header className="studio-bar">
+        <button className="brand-button" onClick={onBack}>
+          <ChevronLeft /> LIFE, DRAWN
+        </button>
+        <div className="project-name">
+          <small>EDITING</small>
+          <input value={project.title} onChange={e => setProject(p => ({ ...p, title: e.target.value }))} />
+          <span>Local project · v{project.version}</span>
+        </div>
+        <div className="bar-actions">
+          <button onClick={() => onSave()}>
+            <Check /> Save
+          </button>
+          {project.exportUrl ? (
+            <a className="export" href={project.exportUrl} download>
+              <Download /> Download MP4
+            </a>
+          ) : (
+            <button className="export" onClick={onRender} disabled={rendering}>
+              <Download />
+              {rendering ? "Rendering…" : "Export film"}
+            </button>
+          )}
+        </div>
+      </header>
+      <div className="workspace">
+        <aside className="scene-list">
+          <div className="aside-head">
+            <div>
+              <small>STORYBOARD</small>
+              <h2>
+                {project.scenes.length} scenes · {Math.round(total)}s
+              </h2>
+            </div>
+          </div>
+          <div className="scene-scroll">
+            {project.scenes.map((s, i) => (
+              <button
+                key={s.id}
+                className={`scene-row ${selected === i ? "active" : ""} ${!s.enabled ? "off" : ""}`}
+                onClick={() => seekScene(i)}
+              >
+                <GripVertical className="grip" />
+                <span className="scene-number">{String(i + 1).padStart(2, "0")}</span>
+                <div className="thumb">
+                  {s.photoUrl ? <img src={s.photoUrl} alt="" /> : <b>✎</b>}
+                  <i style={{ background: s.accent }} />
+                </div>
+                <div className="scene-meta">
+                  <small>{s.strokesUrl ? "stroke draw" : s.style || "portrait"}</small>
+                  <strong>{s.title}</strong>
+                  <span>
+                    {s.duration}s · v{s.revision}
+                  </span>
+                </div>
+                <span className="scene-check">{s.enabled ? "✓" : "—"}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            className="regen-all"
+            onClick={() =>
+              setProject(p => ({
+                ...p,
+                scenes: p.scenes.map((s, i) => ({
+                  ...s,
+                  revision: s.revision + 1,
+                  style: (["portrait", "timeline", "thought", "map"] as const)[(i + s.revision + 1) % 4],
+                  crop: (i + s.revision) % 3,
+                  flip: !s.flip,
+                })),
+              }))
+            }
+          >
+            <RefreshCw /> Recompose full draft
+          </button>
+        </aside>
+        <section className="preview-area">
+          <div className="preview-top">
+            <span>
+              {size.label.toUpperCase()} · {size.aspect} DRAW CUT
+            </span>
+            <button
+              onClick={() => {
+                player.current?.seekTo(0);
+                setPlayhead(0);
+                setSelected(0);
+              }}
+            >
+              Restart
+            </button>
+          </div>
+          <div className={`phone-wrap short-stage stage-${format}`}>
+            <div className="phone-shadow" />
+            <div className="short-chrome">
+              <span>{format === "vertical" ? "Shorts" : "Watch"}</span>
+              <b>LIFE, DRAWN</b>
+            </div>
+            <Player
+              ref={player}
+              component={SketchVideo}
+              inputProps={{ project }}
+              durationInFrames={Math.max(1, Math.round(total * 30))}
+              compositionWidth={size.width}
+              compositionHeight={size.height}
+              fps={30}
+              controls={false}
+              className="player short-player"
+            />
+            {format === "vertical" && (
+              <div className="short-rail">
+                <i />
+                <i />
+                <i />
+              </div>
+            )}
+          </div>
+          <div className="transport">
+            <button aria-label="Previous scene" onClick={() => seekScene(Math.max(0, selected - 1))}>
+              <ChevronLeft />
+            </button>
+            <button className="play" aria-label={playing ? "Pause full video" : "Play full video"} onClick={toggle}>
+              {playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
+            </button>
+            <button
+              aria-label="Next scene"
+              onClick={() => seekScene(Math.min(project.scenes.length - 1, selected + 1))}
+            >
+              <ChevronRight />
+            </button>
+            <span>
+              <b>
+                {Math.floor(playhead / 60)}:{String(Math.floor(playhead % 60)).padStart(2, "0")}
+              </b>{" "}
+              / {Math.floor(total / 60)}:{String(Math.round(total % 60)).padStart(2, "0")}
+            </span>
+            <div className="wave">
+              {Array.from({ length: 34 }, (_, i) => (
+                <i key={i} className={i / 34 < playhead / total ? "heard" : ""} style={{ height: 5 + (i * 17) % 19 }} />
+              ))}
+            </div>
+            <Volume2 />
+          </div>
+        </section>
+        <aside className="inspector">
+          {scene && (
+            <>
+              <div className="inspector-title">
+                <small>
+                  SCENE {selected + 1} · {scene.style || "portrait"}
+                </small>
+                <h2>{scene.title}</h2>
+                <button onClick={() => patchScene(scene.id, { enabled: !scene.enabled })}>
+                  {scene.enabled ? (
+                    <>
+                      <Eye /> Visible
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff /> Hidden
+                    </>
+                  )}
+                </button>
+              </div>
+              <section>
+                <label>Video format</label>
+                <div className="style-picker format-picker">
+                  <button className={format === "vertical" ? "selected" : ""} onClick={() => setFormat("vertical")}>
+                    Vertical 9:16
+                  </button>
+                  <button className={format === "horizontal" ? "selected" : ""} onClick={() => setFormat("horizontal")}>
+                    Horizontal 16:9
+                  </button>
+                </div>
+              </section>
+              <section>
+                <label>Caption</label>
+                <textarea
+                  value={scene.caption.text}
+                  onChange={e => patchScene(scene.id, { caption: { ...scene.caption, text: e.target.value } })}
+                />
+                <div className="hint">
+                  <Sparkles /> One clear thought per scene.
+                </div>
+              </section>
+              <section>
+                <div className="range-head">
+                  <label>Scene length</label>
+                  <b>{scene.duration}s</b>
+                </div>
+                <input
+                  type="range"
+                  min="4"
+                  max="16"
+                  value={scene.duration}
+                  onChange={e => patchScene(scene.id, { duration: Number(e.target.value) })}
+                />
+              </section>
+              <section>
+                <label>Composition</label>
+                <div className="style-picker">
+                  {(["portrait", "timeline", "thought", "map"] as const).map(style => (
+                    <button
+                      key={style}
+                      className={scene.style === style ? "selected" : ""}
+                      onClick={() => patchScene(scene.id, { style })}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <label>Drawing behavior</label>
+                {(
+                  [
+                    ["marker", "Marker tip + scratch SFX"],
+                    ["paper", "Erase ghosts"],
+                    ["zoom", "Slow camera push"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    className="toggle-row"
+                    key={key}
+                    onClick={() =>
+                      patchScene(scene.id, { effects: { ...scene.effects, [key]: !scene.effects[key] } })
+                    }
+                  >
+                    <span>{label}</span>
+                    <b className={scene.effects[key] ? "on" : ""} />
+                  </button>
+                ))}
+              </section>
+              <section>
+                <label>Stroke draw</label>
+                <div className="hint">
+                  <Sparkles />
+                  {scene.strokes?.strokes?.length
+                    ? `Tracing your photo · ${scene.strokes.strokes.length} marker strokes`
+                    : `Upload a photo to draw it stroke by stroke.`}
+                </div>
+              </section>
+              <section>
+                <div className="audio-title">
+                  <Music2 />
+                  <span>
+                    <label>Sound bed</label>
+                    <small>Voice remains in front</small>
+                  </span>
+                </div>
+                <select
+                  value={project.music}
+                  onChange={e => setProject(p => ({ ...p, music: e.target.value as Project["music"] }))}
+                >
+                  <option value="warm">Warm room + marker</option>
+                  <option value="hopeful">Soft acoustic pulse</option>
+                  <option value="none">Voice only</option>
+                </select>
+              </section>
+              <button className="regen-scene" onClick={() => regenerate(scene)}>
+                <RefreshCw /> Regenerate composition <span>v{scene.revision}</span>
+              </button>
+            </>
+          )}
+        </aside>
+      </div>
+      <div className="timeline">
+        <div className="timeline-tools">
+          <span>FULL STORY PLAYBACK</span>
+          <b>{Math.round(total)} seconds</b>
+        </div>
+        <div className="timeline-track">
+          {enabled.map(s => (
+            <button
+              key={s.id}
+              style={{ flex: s.duration, borderColor: s.accent }}
+              onClick={() => seekScene(project.scenes.indexOf(s))}
+              className={project.scenes.indexOf(s) === selected ? "selected" : ""}
+            >
+              <span>{project.scenes.indexOf(s) + 1}</span>
+              <b>{s.title}</b>
+              <i>{s.duration}s</i>
+            </button>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
 }

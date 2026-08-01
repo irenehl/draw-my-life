@@ -5,13 +5,15 @@ import type { StrokeSet } from "./stroke-trace";
 import { strokeProgressAt } from "./stroke-trace";
 import { MARKER, markerBarrelForInk, markerColorForStroke } from "./marker-style";
 import { visibleCaptionWords } from "./story";
+import { frameSize, type VideoFormat } from "./format";
 
-/** Rasterize stroke-by-stroke frames onto a 1080×1920 whiteboard for ffmpeg. */
+/** Rasterize stroke-by-stroke frames for ffmpeg (vertical Short or horizontal 16:9). */
 export async function renderStrokeFrames(options: {
   strokeSet: StrokeSet;
   outDir: string;
   durationSec: number;
   fps?: number;
+  format?: VideoFormat;
   sketchPath?: string;
   accent?: string;
   caption?: string;
@@ -19,19 +21,27 @@ export async function renderStrokeFrames(options: {
   sceneLabel?: string;
 }): Promise<{ framePattern: string; frameCount: number }> {
   const fps = options.fps ?? 30;
+  const format = options.format ?? "vertical";
+  const { width, height } = frameSize(format);
+  const landscape = format === "horizontal";
   const frameCount = Math.max(1, Math.round(options.durationSec * fps));
   const drawFrames = Math.min(frameCount, Math.round(Math.min(options.durationSec * 0.78, 5.5) * fps));
-  const width = 1080;
-  const height = 1920;
-  const padX = 36;
-  const padTop = 90;
-  const padBottom = 240;
+
+  const padX = landscape ? 120 : 36;
+  const padTop = landscape ? 56 : 90;
+  const padBottom = landscape ? 140 : 240;
   const drawW = width - padX * 2;
   const drawH = height - padTop - padBottom;
   const scale = Math.min(drawW / options.strokeSet.width, drawH / options.strokeSet.height);
   const offsetX = padX + (drawW - options.strokeSet.width * scale) / 2;
   const offsetY = padTop + (drawH - options.strokeSet.height * scale) / 2;
   const brush = Math.max(6, Math.min(options.strokeSet.width, options.strokeSet.height) * 0.032);
+  const cx = width / 2;
+  const titleSize = landscape ? 36 : 40;
+  const captionSize = landscape ? 30 : 34;
+  const captionWrap = landscape ? 52 : 34;
+  const titleY = height - (landscape ? 150 : 300);
+  const captionBaseY = height - (landscape ? 100 : 200);
 
   await fs.mkdir(options.outDir, { recursive: true });
 
@@ -55,7 +65,6 @@ export async function renderStrokeFrames(options: {
       })
       .join("");
 
-    // Colored marker strokes as fallback / wet ink overlay
     const coloredInk = options.strokeSet.strokes
       .map((stroke, i) => {
         let dashOffset = 100;
@@ -66,12 +75,10 @@ export async function renderStrokeFrames(options: {
       })
       .join("");
 
-    // When a color sketch exists, reveal THAT image — don't rainbow-overlay extra strokes on top
     const drawing = sketchHref
       ? `<image href="${sketchHref}" x="0" y="0" width="${options.strokeSet.width}" height="${options.strokeSet.height}" preserveAspectRatio="xMidYMid meet" mask="url(#drawMask)"/>`
       : coloredInk;
 
-    // Just the marker tip — no hand (classic overhead DML look often crops to tip)
     const marker =
       tip && progress01 < 0.98
         ? `<g transform="translate(${offsetX + tip.x * scale} ${offsetY + tip.y * scale}) rotate(28)">
@@ -86,16 +93,16 @@ export async function renderStrokeFrames(options: {
     const told = options.caption ? visibleCaptionWords(options.caption, sceneProgress) : "";
     const titleOpacity = Math.max(0, (progress01 - 0.68) / 0.2);
     const label = options.sceneLabel
-      ? `<text x="48" y="64" font-family="Comic Sans MS, Marker Felt, cursive" font-size="26" fill="#5a5a5a">${escapeXml(options.sceneLabel)}</text>`
+      ? `<text x="48" y="${landscape ? 48 : 64}" font-family="Comic Sans MS, Marker Felt, cursive" font-size="${landscape ? 22 : 26}" fill="#5a5a5a">${escapeXml(options.sceneLabel)}</text>`
       : "";
     const title = options.title
-      ? `<text x="540" y="${height - 300}" text-anchor="middle" font-family="Comic Sans MS, Marker Felt, cursive" font-size="40" font-weight="700" fill="${MARKER.black}" opacity="${titleOpacity}">${escapeXml(options.title)}</text>`
+      ? `<text x="${cx}" y="${titleY}" text-anchor="middle" font-family="Comic Sans MS, Marker Felt, cursive" font-size="${titleSize}" font-weight="700" fill="${MARKER.black}" opacity="${titleOpacity}">${escapeXml(options.title)}</text>`
       : "";
-    const captionLines = wrapCaption(told, 34);
+    const captionLines = wrapCaption(told, captionWrap);
     const caption = captionLines
       .map((line, i) => {
-        const y = height - 200 + i * 42;
-        return `<text x="540" y="${y}" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="${MARKER.black}">
+        const y = captionBaseY + i * (landscape ? 36 : 42);
+        return `<text x="${cx}" y="${y}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${captionSize}" font-weight="700" fill="${MARKER.black}">
           <tspan fill="${MARKER.board}" stroke="${MARKER.board}" stroke-width="16" paint-order="stroke">${escapeXml(line)}</tspan>
         </text>`;
       })

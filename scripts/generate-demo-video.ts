@@ -7,6 +7,7 @@ import { createSketchAssets } from "../lib/line-art";
 import { renderStrokeFrames } from "../lib/render-strokes";
 import { MARKER } from "../lib/marker-style";
 import { buildStoryBeats } from "../lib/story";
+import { ffmpegSize, type VideoFormat } from "../lib/format";
 
 function run(args: string[]) {
   return new Promise<void>((resolve, reject) => {
@@ -24,6 +25,7 @@ async function makeDrawing(name: string, svg: string) {
 }
 
 async function main() {
+  const format = (process.argv.includes("--horizontal") ? "horizontal" : "vertical") as VideoFormat;
   await fs.mkdir(path.join(process.cwd(), "public/uploads"), { recursive: true });
   await fs.mkdir(path.join(process.cwd(), "public/exports"), { recursive: true });
   await fs.mkdir("/opt/cursor/artifacts", { recursive: true });
@@ -109,6 +111,7 @@ Looking back, that detour became the beginning I needed.`;
       outDir: framesDir,
       durationSec: beat.duration,
       fps: 30,
+      format,
       sketchPath,
       accent: beat.accent,
       caption: beat.text,
@@ -155,13 +158,17 @@ Looking back, that detour became the beginning I needed.`;
 
   const concatFile = path.join(tempDir, "segments.txt");
   await fs.writeFile(concatFile, segments.map(f => `file '${f.replaceAll("'", "'\\''")}'`).join("\n"));
-  const output = path.join(process.cwd(), "public/exports/draw-my-life-demo.mp4");
-  const artifact = "/opt/cursor/artifacts/draw-my-life-stroke-demo.mp4";
+  const suffix = format === "horizontal" ? "horizontal" : "demo";
+  const output = path.join(process.cwd(), `public/exports/draw-my-life-${suffix}.mp4`);
+  const artifact =
+    format === "horizontal"
+      ? "/opt/cursor/artifacts/draw-my-life-horizontal-demo.mp4"
+      : "/opt/cursor/artifacts/draw-my-life-stroke-demo.mp4";
   await run(["-y", "-f", "concat", "-safe", "0", "-i", concatFile, "-c", "copy", output]);
   await fs.copyFile(output, artifact);
   const st = await fs.stat(output);
   const durationSec = beats.reduce((n, b) => n + b.duration, 0);
-  console.log(JSON.stringify({ output, artifact, bytes: st.size, durationSec, size: "1080x1920", beats: beats.length }, null, 2));
+  console.log(JSON.stringify({ output, artifact, bytes: st.size, durationSec, size: ffmpegSize(format), format, beats: beats.length }, null, 2));
 }
 
 main().catch(err => {

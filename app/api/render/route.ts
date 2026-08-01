@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { storage } from "@/lib/storage";
 import { createSketchAssets, loadStrokeSet } from "@/lib/line-art";
 import { renderStrokeFrames } from "@/lib/render-strokes";
+import { ffmpegSize, frameSize } from "@/lib/format";
 import { spawn } from "child_process";
 import path from "path";
 import os from "os";
@@ -30,6 +31,11 @@ export async function POST(req: Request) {
   const output = path.join(outDir, filename);
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "draw-my-life-render-"));
   const pencilSound = path.join(process.cwd(), "public", "sounds", "pencil-scratch.wav");
+  const format = project.format ?? "vertical";
+  const size = ffmpegSize(format);
+  const { width, height } = frameSize(format);
+  const sketchMaxW = Math.round(width * 0.9);
+  const sketchMaxH = Math.round(height * 0.75);
 
   try {
     const segments: string[] = [];
@@ -59,6 +65,7 @@ export async function POST(req: Request) {
           outDir: framesDir,
           durationSec: scene.duration,
           fps: 30,
+          format,
           sketchPath,
           accent: scene.accent,
           caption: scene.caption.text,
@@ -115,7 +122,7 @@ export async function POST(req: Request) {
         await runFfmpeg([
           "-y",
           "-f", "lavfi",
-          "-i", `color=c=f9f8f2:s=1080x1920:d=${scene.duration}:r=30`,
+          "-i", `color=c=f9f8f2:s=${size}:d=${scene.duration}:r=30`,
           "-framerate", "30",
           "-loop", "1",
           "-t", String(scene.duration),
@@ -123,7 +130,7 @@ export async function POST(req: Request) {
           "-stream_loop", "-1",
           "-i", pencilSound,
           "-filter_complex",
-          `[0:v]settb=AVTB[base];[1:v]scale=1000:1500:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=f9f8f2,fps=30,settb=AVTB,format=yuv420p[ink];[base][ink]xfade=transition=wipeleft:duration=${drawSec}:offset=0,format=yuv420p[v];[2:a]volume=2.4,afade=t=out:st=${Math.max(0.2, drawSec - 0.2)}:d=0.2,alimiter=limit=0.95,apad=whole_dur=${scene.duration}[a]`,
+          `[0:v]settb=AVTB[base];[1:v]scale=${sketchMaxW}:${sketchMaxH}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=f9f8f2,fps=30,settb=AVTB,format=yuv420p[ink];[base][ink]xfade=transition=wipeleft:duration=${drawSec}:offset=0,format=yuv420p[v];[2:a]volume=2.4,afade=t=out:st=${Math.max(0.2, drawSec - 0.2)}:d=0.2,alimiter=limit=0.95,apad=whole_dur=${scene.duration}[a]`,
           "-map", "[v]",
           "-map", "[a]",
           "-t", String(scene.duration),
@@ -138,7 +145,7 @@ export async function POST(req: Request) {
         await runFfmpeg([
           "-y",
           "-f", "lavfi",
-          "-i", `color=c=f9f8f2:s=1080x1920:d=${scene.duration}:r=30`,
+          "-i", `color=c=f9f8f2:s=${size}:d=${scene.duration}:r=30`,
           "-f", "lavfi",
           "-t", String(scene.duration),
           "-i", "anullsrc=r=48000:cl=stereo",

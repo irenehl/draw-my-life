@@ -19,6 +19,7 @@ export function demoProject(): Project {
     notes: DEMO_STORY,
     photos: [],
     scenes: makeScenes(DEMO_STORY, []),
+    format: "vertical",
     music: "warm",
     musicVolume: 18,
     narrationVolume: 92,

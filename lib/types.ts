@@ -1,5 +1,7 @@
 import type { StrokeSet } from "./stroke-trace";
+import type { VideoFormat } from "./format";
 
+export type { VideoFormat };
 export type StoryRole = "hook" | "setup" | "turn" | "payoff" | "close";
 export type Caption = { id: string; text: string; start: number; end: number; emphasis?: string };
 export type SceneStyle = "portrait" | "timeline" | "thought" | "map";
@@ -30,6 +32,8 @@ export type Project = {
   narrationUrl?: string;
   photos: string[];
   scenes: Scene[];
+  /** vertical = 9:16 Short · horizontal = 16:9 landscape */
+  format: VideoFormat;
   music: "warm" | "hopeful" | "none";
   musicVolume: number;
   narrationVolume: number;

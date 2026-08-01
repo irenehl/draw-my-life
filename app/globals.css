@@ -10,6 +10,16 @@
 .genuine-studio .preview-area{min-height:0;overflow:hidden;background:oklch(86% .01 95);background-image:linear-gradient(oklch(72% .01 95/.18) 1px,transparent 1px),linear-gradient(90deg,oklch(72% .01 95/.18) 1px,transparent 1px);background-size:38px 38px;padding:38px 20px 10px}
 .genuine-studio .preview-top{z-index:4;align-items:center}.genuine-studio .preview-top>button{border:1px solid var(--line);padding:5px 9px;background:oklch(94% .006 95)}
 .genuine-studio .phone-wrap{height:min(calc(100% - 64px),720px);max-width:78%;aspect-ratio:9/16;flex:0 1 auto;min-height:0}
+.genuine-studio .stage-horizontal{height:min(calc(100% - 64px),420px);max-width:92%;aspect-ratio:16/9}
+.genuine-studio.format-horizontal .short-chrome{padding:8px 16px}
+.onboarding-format,.format-picker{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.onboarding-format button,.format-picker button{border:1px solid var(--line);background:oklch(96% .006 95);padding:10px 8px;text-align:left;display:flex;flex-direction:column;gap:3px;font-size:12px}
+.onboarding-format button small,.format-picker button small{font-family:"DM Mono";font-size:8px;color:var(--muted)}
+.onboarding-format button.selected,.format-picker button.selected{background:oklch(24% .018 160);color:oklch(97% .006 95);border-color:oklch(24% .018 160)}
+.onboarding-format button.selected small{color:rgba(255,255,255,.7)}
+.whiteboard-video.film-horizontal .memory-sketch.short-sketch{inset:6% 8% 18%}
+.whiteboard-video.film-horizontal .film-caption{bottom:5%;font-size:clamp(20px,3.2vw,36px)}
+.whiteboard-video.film-horizontal .board-date{top:5%;left:4%}
 .genuine-studio .player{border:0;box-shadow:none;background:oklch(97% .006 95)}
 .genuine-studio .short-stage{border:0;border-radius:0;overflow:hidden;box-shadow:0 22px 40px oklch(24% .018 160/.22);background:#000;position:relative}
 .genuine-studio .short-player{width:100%!important;height:100%!important}

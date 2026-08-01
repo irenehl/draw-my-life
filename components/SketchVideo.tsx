@@ -187,7 +187,7 @@ export default function SketchVideo({ project, selected }: { project: Project; s
   const pencilVolume = 0.95;
 
   return (
-    <AbsoluteFill className="whiteboard-video short-film" style={{ color: "#1a1a1a" }}>
+    <AbsoluteFill className={`whiteboard-video short-film film-${project.format ?? "vertical"}`} style={{ color: "#1a1a1a" }}>
       {scene.effects.paper && (
         <>
           <div className="erase-ghost ghost-one" />

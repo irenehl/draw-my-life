@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { Check, ChevronRight, ImagePlus, Mic, WandSparkles, X } from "lucide-react";
 import { demoProject } from "@/lib/demo";
-import type { Project } from "@/lib/types";
+import type { Project, VideoFormat } from "@/lib/types";
 import FilmEditor from "./FilmEditor";
 
 type Stage = "start" | "editor";
@@ -11,6 +11,7 @@ export default function Studio() {
   const [project, setProject] = useState<Project>(() => demoProject());
   const [notes, setNotes] = useState(project.notes);
   const [title, setTitle] = useState(project.title);
+  const [format, setFormat] = useState<VideoFormat>("vertical");
   const [photos, setPhotos] = useState<string[]>([]);
   const [audio, setAudio] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,7 @@ export default function Studio() {
   async function generate() {
     if (notes.trim().length < 20) return alert("Tell us a little more—at least 20 characters keeps the story grounded.");
     setBusy(true);
-    const res = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, notes, photos, narrationUrl: audio }) });
+    const res = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, notes, photos, narrationUrl: audio, format }) });
     const data = await res.json();
     setBusy(false);
     if (!res.ok) return alert(data.error);
@@ -87,6 +88,12 @@ export default function Studio() {
           <div className="tape"/>
           <div className="card-head"><span>01</span><div><small>NEW STORY</small><h2>Tell it, then draw it</h2></div></div>
           <label className="field-label">Story title<input value={title} onChange={e => setTitle(e.target.value)} placeholder="The summer everything changed" /></label>
+          <div className="field-label">Video format
+            <div className="format-picker onboarding-format">
+              <button type="button" className={format==="vertical"?"selected":""} onClick={()=>setFormat("vertical")}>Vertical 9:16<small>YouTube Short</small></button>
+              <button type="button" className={format==="horizontal"?"selected":""} onClick={()=>setFormat("horizontal")}>Horizontal 16:9<small>YouTube / landscape</small></button>
+            </div>
+          </div>
           <label className="field-label">Your story<textarea value={notes} onChange={e => setNotes(e.target.value)} rows={6} placeholder={"This was me 10 years ago — scared and stuck.\n\nThen one moment changed everything.\n\nLooking back, that was the beginning."}/><small className="story-hint">One paragraph (or numbered beat) per scene. We’ll animate each drawing to that part of your story.</small></label>
           <button className="dropzone" onClick={() => photoRef.current?.click()}><ImagePlus/><strong>{photos.length ? `${photos.length} drawings paired to your story` : "Add drawings for each beat"}</strong><small>JPG, PNG or WEBP · 1st drawing → 1st paragraph</small><span>Choose drawings</span></button>
           <input ref={photoRef} hidden type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => upload(e.target.files, "photo")}/>

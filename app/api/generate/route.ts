@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     photos: p.photos,
     narrationUrl: p.narrationUrl,
     scenes,
+    format: p.format ?? "vertical",
     music: "warm",
     musicVolume: 18,
     narrationVolume: 92,

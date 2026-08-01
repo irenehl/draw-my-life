@@ -1,6 +1,6 @@
 # Life, Drawn
 
-A local-first story studio that turns photos, narration, and notes into a tactile vertical draw-my-life film.
+A local-first story studio that turns photos, narration, and notes into a tactile vertical Draw My Life film — stroke-by-stroke marker drawing of your photos, pencil sounds while ink is down, and a full-bleed 9:16 YouTube Short frame.
 
 ## Run locally
 

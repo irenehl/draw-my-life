@@ -41,8 +41,21 @@ export default function Studio() {
 
   async function save(next = project) {
     if (next.id === "demo") return;
-    const res = await fetch(`/api/projects/${next.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
-    if (res.ok) setProject(await res.json());
+    const payload = {
+      ...next,
+      scenes: next.scenes.map(({ strokes: _strokes, ...scene }) => scene),
+    };
+    const res = await fetch(`/api/projects/${next.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (res.ok) {
+      const saved = await res.json();
+      setProject({
+        ...saved,
+        scenes: saved.scenes.map((scene: Project["scenes"][number], i: number) => ({
+          ...scene,
+          strokes: next.scenes[i]?.strokes,
+        })),
+      });
+    }
   }
 
   async function render() {

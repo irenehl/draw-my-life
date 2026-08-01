@@ -51,11 +51,15 @@ export async function POST(req: Request) {
       const drawSec = Math.min(5.2, Math.max(1.6, scene.duration * 0.72));
       if (strokes?.strokes.length) {
         const framesDir = path.join(tempDir, `frames-${index}`);
+        const sketchPath = scene.sketchUrl
+          ? path.join(process.cwd(), "public", scene.sketchUrl.replace(/^\//, ""))
+          : undefined;
         const { framePattern } = await renderStrokeFrames({
           strokeSet: strokes,
           outDir: framesDir,
           durationSec: scene.duration,
           fps: 30,
+          sketchPath,
           accent: scene.accent,
           caption: scene.caption.text,
           title: scene.title,

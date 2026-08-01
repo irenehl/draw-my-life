@@ -33,6 +33,10 @@ function MarkerDrawing({ scene, progress }: { scene: Scene; progress: number }) 
   );
 }
 
+/**
+ * Reveals the creator's actual line-art image along traced marker paths.
+ * The visible ink IS the photo's drawing — strokes only drive the reveal mask + pen tip.
+ */
 function StrokeSketch({
   scene,
   strokeSet,
@@ -44,6 +48,10 @@ function StrokeSketch({
 }) {
   const reveal = getStrokeReveal(strokeSet, progress);
   const [vx, vy, vw, vh] = strokeSet.viewBox;
+  const brush = Math.max(4.5, Math.min(strokeSet.width, strokeSet.height) * 0.028);
+  const maskId = `draw-mask-${scene.id}`;
+  const sketchUrl = scene.sketchUrl;
+
   return (
     <div className="stroke-sketch" style={{ transform: scene.flip ? "scaleX(-1)" : undefined }}>
       <svg
@@ -51,31 +59,84 @@ function StrokeSketch({
         viewBox={`${vx} ${vy} ${vw} ${vh}`}
         preserveAspectRatio="xMidYMid meet"
       >
-        {strokeSet.strokes.map((stroke, i) => (
-          <path
-            key={`${i}-${stroke.d.slice(0, 24)}`}
-            d={stroke.d}
-            pathLength="100"
-            style={{
-              strokeDasharray: 100,
-              strokeDashoffset: reveal.dashFor(i),
-              strokeWidth: Math.max(1.6, Math.min(strokeSet.width, strokeSet.height) * 0.012),
-            }}
+        <defs>
+          <mask id={maskId} maskUnits="userSpaceOnUse" x={vx} y={vy} width={vw} height={vh}>
+            <rect x={vx} y={vy} width={vw} height={vh} fill="black" />
+            {strokeSet.strokes.map((stroke, i) => (
+              <path
+                key={`m-${i}`}
+                d={stroke.d}
+                fill="none"
+                stroke="white"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={brush}
+                pathLength="100"
+                strokeDasharray="100"
+                strokeDashoffset={reveal.dashFor(i)}
+              />
+            ))}
+          </mask>
+        </defs>
+
+        {/* Soft guide of finished ink while drawing — very faint */}
+        {sketchUrl && (
+          <image
+            href={sketchUrl}
+            x={vx}
+            y={vy}
+            width={vw}
+            height={vh}
+            opacity={0.04}
+            preserveAspectRatio="xMidYMid meet"
           />
-        ))}
+        )}
+
+        {/* The photo drawing, painted on stroke by stroke */}
+        {sketchUrl ? (
+          <image
+            href={sketchUrl}
+            x={vx}
+            y={vy}
+            width={vw}
+            height={vh}
+            mask={`url(#${maskId})`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{ filter: "contrast(1.15)" }}
+          />
+        ) : (
+          strokeSet.strokes.map((stroke, i) => (
+            <path
+              key={`p-${i}`}
+              d={stroke.d}
+              fill="none"
+              stroke="#18201d"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={Math.max(1.8, brush * 0.45)}
+              pathLength="100"
+              strokeDasharray="100"
+              strokeDashoffset={reveal.dashFor(i)}
+            />
+          ))
+        )}
+
+        {/* Active marker tip ink so the current stroke reads as wet */}
+        {reveal.isDrawing && strokeSet.strokes[reveal.strokeIndex] && (
+          <path
+            d={strokeSet.strokes[reveal.strokeIndex].d}
+            fill="none"
+            stroke="#18201d"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={Math.max(1.4, brush * 0.35)}
+            pathLength="100"
+            strokeDasharray="100"
+            strokeDashoffset={reveal.dashFor(reveal.strokeIndex)}
+            opacity={0.55}
+          />
+        )}
       </svg>
-      {/* Soft photo underlay once enough ink is down — still reads as drawing */}
-      {scene.photoUrl && progress > 55 && (
-        <Img
-          src={scene.photoUrl}
-          className="photo-underlay"
-          style={{
-            opacity: interpolate(progress, [55, 92], [0, 0.14], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-            objectPosition: `${35 + (scene.crop || 0) * 15}% center`,
-            transform: scene.flip ? "scaleX(-1)" : undefined,
-          }}
-        />
-      )}
     </div>
   );
 }

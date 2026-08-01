@@ -225,6 +225,28 @@ function extractPolylines(img: Uint8Array, w: number, h: number): Point[][] {
   return strokes;
 }
 
+function inkDensity(mask: Uint8Array) {
+  let ink = 0;
+  for (let i = 0; i < mask.length; i++) if (mask[i]) ink++;
+  return ink / Math.max(1, mask.length);
+}
+
+function dilate(mask: Uint8Array, w: number, h: number): Uint8Array {
+  const out = new Uint8Array(mask);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      if (mask[idx(x, y, w)]) continue;
+      for (const n of NEIGHBORS) {
+        if (mask[idx(x + n.x, y + n.y, w)]) {
+          out[idx(x, y, w)] = 1;
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * Trace centerline strokes from a grayscale/binary raw buffer.
  * Dark pixels (below threshold) are treated as ink.
@@ -236,24 +258,27 @@ export function traceStrokesFromRaw(
   options: { threshold?: number; maxStrokes?: number; simplify?: number } = {},
 ): StrokeSet {
   const threshold = options.threshold ?? 140;
-  const maxStrokes = options.maxStrokes ?? 220;
-  const simplify = options.simplify ?? 1.35;
+  const maxStrokes = options.maxStrokes ?? 280;
+  const simplify = options.simplify ?? 1.2;
   const mask = new Uint8Array(width * height);
   for (let i = 0; i < mask.length; i++) mask[i] = raw[i]! < threshold ? 1 : 0;
 
-  const skeleton = thinBinary(mask, width, height);
-  let polylines = extractPolylines(skeleton, width, height)
-    .map(poly => rdp(poly, simplify))
-    .filter(poly => poly.length >= 2 && polylineLength(poly) >= 8);
+  // Edge maps from photo line-art are already thin — thinning them shatters strokes.
+  // Only skeletonize denser ink (marker fills / thick shapes).
+  const density = inkDensity(mask);
+  const prepared = density > 0.085 ? thinBinary(dilate(mask, width, height), width, height) : mask;
 
-  // Longest / top-to-bottom reading order feels like a person drawing a scene
+  let polylines = extractPolylines(prepared, width, height)
+    .map(poly => rdp(poly, simplify))
+    .filter(poly => poly.length >= 2 && polylineLength(poly) >= 6);
+
+  // Natural whiteboard order: top-to-bottom, then longer structure strokes first within a band
   polylines.sort((a, b) => {
-    const la = polylineLength(a);
-    const lb = polylineLength(b);
-    if (Math.abs(la - lb) > 40) return lb - la;
     const ay = a.reduce((s, p) => s + p.y, 0) / a.length;
     const by = b.reduce((s, p) => s + p.y, 0) / b.length;
-    return ay - by;
+    const band = Math.floor(ay / 28) - Math.floor(by / 28);
+    if (band) return band;
+    return polylineLength(b) - polylineLength(a);
   });
 
   if (polylines.length > maxStrokes) polylines = polylines.slice(0, maxStrokes);

@@ -25,8 +25,8 @@ export async function createSketchAssets(photoUrl: string): Promise<SketchAssets
   await ensureUploads();
   const sourceName = path.basename(photoUrl);
   const stem = sourceName.replace(path.extname(sourceName), "");
-  const outputName = `${stem}-line-art-v3.png`;
-  const strokesName = `${stem}-strokes-v3.json`;
+  const outputName = `${stem}-line-art-v4.png`;
+  const strokesName = `${stem}-strokes-v4.json`;
   const source = path.join(uploads, sourceName);
   const output = path.join(uploads, outputName);
   const strokesPath = path.join(uploads, strokesName);

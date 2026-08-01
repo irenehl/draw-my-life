@@ -10,6 +10,7 @@ export async function renderStrokeFrames(options: {
   outDir: string;
   durationSec: number;
   fps?: number;
+  sketchPath?: string;
   accent?: string;
   caption?: string;
   title?: string;
@@ -20,31 +21,50 @@ export async function renderStrokeFrames(options: {
   const drawFrames = Math.min(frameCount, Math.round(Math.min(options.durationSec * 0.72, 5.2) * fps));
   const width = 1080;
   const height = 1920;
-  const padX = 48;
-  const padTop = 120;
-  const padBottom = 280;
+  const padX = 40;
+  const padTop = 100;
+  const padBottom = 260;
   const drawW = width - padX * 2;
   const drawH = height - padTop - padBottom;
   const scale = Math.min(drawW / options.strokeSet.width, drawH / options.strokeSet.height);
   const offsetX = padX + (drawW - options.strokeSet.width * scale) / 2;
   const offsetY = padTop + (drawH - options.strokeSet.height * scale) / 2;
-  const strokeWidth = Math.max(2.2, Math.min(options.strokeSet.width, options.strokeSet.height) * 0.012 * scale);
+  const brush = Math.max(5, Math.min(options.strokeSet.width, options.strokeSet.height) * 0.028);
 
   await fs.mkdir(options.outDir, { recursive: true });
 
+  let sketchHref: string | undefined;
+  if (options.sketchPath) {
+    const bytes = await fs.readFile(options.sketchPath);
+    sketchHref = `data:image/png;base64,${bytes.toString("base64")}`;
+  }
+
   for (let f = 0; f < frameCount; f++) {
     const progress01 = Math.min(1, f / Math.max(1, drawFrames));
-    const { strokeIndex, strokeLocal } = strokeProgressAt(options.strokeSet, progress01);
-    const paths = options.strokeSet.strokes
+    const { strokeIndex, strokeLocal, tip } = strokeProgressAt(options.strokeSet, progress01);
+
+    const maskPaths = options.strokeSet.strokes
       .map((stroke, i) => {
         let dashOffset = 100;
         if (i < strokeIndex) dashOffset = 0;
         else if (i === strokeIndex) dashOffset = 100 - strokeLocal * 100;
-        return `<path d="${stroke.d}" fill="none" stroke="#18201d" stroke-width="${strokeWidth / scale}" stroke-linecap="round" stroke-linejoin="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${dashOffset}"/>`;
+        return `<path d="${stroke.d}" fill="none" stroke="white" stroke-width="${brush}" stroke-linecap="round" stroke-linejoin="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${dashOffset}"/>`;
       })
       .join("");
 
-    const tip = strokeProgressAt(options.strokeSet, progress01).tip;
+    const fallbackInk = options.strokeSet.strokes
+      .map((stroke, i) => {
+        let dashOffset = 100;
+        if (i < strokeIndex) dashOffset = 0;
+        else if (i === strokeIndex) dashOffset = 100 - strokeLocal * 100;
+        return `<path d="${stroke.d}" fill="none" stroke="#18201d" stroke-width="${brush * 0.45}" stroke-linecap="round" stroke-linejoin="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${dashOffset}"/>`;
+      })
+      .join("");
+
+    const drawing = sketchHref
+      ? `<image href="${sketchHref}" x="0" y="0" width="${options.strokeSet.width}" height="${options.strokeSet.height}" preserveAspectRatio="xMidYMid meet" mask="url(#drawMask)"/>`
+      : fallbackInk;
+
     const hand =
       tip && progress01 < 0.98
         ? `<g transform="translate(${offsetX + tip.x * scale + 8} ${offsetY + tip.y * scale - 10}) rotate(16)">
@@ -71,9 +91,14 @@ export async function renderStrokeFrames(options: {
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#f8f7f1"/>
-  <rect x="0" y="0" width="${width}" height="${height}" fill="none" stroke="#e6e1d4" stroke-width="2"/>
   ${label}
-  <g transform="translate(${offsetX} ${offsetY}) scale(${scale})">${paths}</g>
+  <defs>
+    <mask id="drawMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${options.strokeSet.width}" height="${options.strokeSet.height}">
+      <rect width="${options.strokeSet.width}" height="${options.strokeSet.height}" fill="black"/>
+      ${maskPaths}
+    </mask>
+  </defs>
+  <g transform="translate(${offsetX} ${offsetY}) scale(${scale})">${drawing}</g>
   ${hand}
   ${title}
   ${caption}

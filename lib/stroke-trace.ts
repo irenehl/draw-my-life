@@ -225,10 +225,19 @@ function extractPolylines(img: Uint8Array, w: number, h: number): Point[][] {
   return strokes;
 }
 
-function inkDensity(mask: Uint8Array) {
+/** Thick marker strokes need skeletonizing; already-thin edge maps must not. */
+function needsThinning(mask: Uint8Array, w: number, h: number) {
   let ink = 0;
-  for (let i = 0; i < mask.length; i++) if (mask[i]) ink++;
-  return ink / Math.max(1, mask.length);
+  let neighborSum = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      if (!mask[idx(x, y, w)]) continue;
+      ink++;
+      neighborSum += degreeAt(mask, x, y, w, h);
+    }
+  }
+  if (!ink) return false;
+  return neighborSum / ink > 3.2;
 }
 
 function dilate(mask: Uint8Array, w: number, h: number): Uint8Array {
@@ -263,10 +272,10 @@ export function traceStrokesFromRaw(
   const mask = new Uint8Array(width * height);
   for (let i = 0; i < mask.length; i++) mask[i] = raw[i]! < threshold ? 1 : 0;
 
-  // Edge maps from photo line-art are already thin — thinning them shatters strokes.
-  // Only skeletonize denser ink (marker fills / thick shapes).
-  const density = inkDensity(mask);
-  const prepared = density > 0.085 ? thinBinary(dilate(mask, width, height), width, height) : mask;
+  // Thick dry-erase strokes need a skeleton; 1px photo-edge maps must stay unthinned.
+  const prepared = needsThinning(mask, width, height)
+    ? thinBinary(dilate(mask, width, height), width, height)
+    : mask;
 
   let polylines = extractPolylines(prepared, width, height)
     .map(poly => rdp(poly, simplify))

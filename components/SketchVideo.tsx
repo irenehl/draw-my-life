@@ -2,6 +2,7 @@ import { AbsoluteFill, Audio, Img, interpolate, useCurrentFrame, useVideoConfig 
 import type { Project, Scene } from "@/lib/types";
 import type { StrokeSet } from "@/lib/stroke-trace";
 import { getStrokeReveal } from "@/lib/reveal";
+import { markerBarrelForInk, markerColorForStroke } from "@/lib/marker-style";
 
 const paths = {
   portrait: ["M27 47c0-17 10-29 24-29 16 0 25 12 25 29 0 18-10 31-25 31S27 65 27 47Z", "M36 44c4-5 8-7 15-7 8 0 13 2 17 7", "M42 56h1m16 0h1M45 65c4 3 8 3 13 0"],
@@ -20,7 +21,11 @@ function MarkerDrawing({ scene, progress }: { scene: Scene; progress: number }) 
           key={d}
           d={d}
           pathLength="100"
-          style={{ strokeDasharray: 100, strokeDashoffset: Math.max(0, 100 - progress * 1.3 + i * 24) }}
+          style={{
+            stroke: markerColorForStroke(i, scene.accent),
+            strokeDasharray: 100,
+            strokeDashoffset: Math.max(0, 100 - progress * 1.3 + i * 24),
+          }}
         />
       ))}
       <path
@@ -33,10 +38,6 @@ function MarkerDrawing({ scene, progress }: { scene: Scene; progress: number }) 
   );
 }
 
-/**
- * Reveals the creator's actual line-art image along traced marker paths.
- * The visible ink IS the photo's drawing — strokes only drive the reveal mask + pen tip.
- */
 function StrokeSketch({
   scene,
   strokeSet,
@@ -48,17 +49,13 @@ function StrokeSketch({
 }) {
   const reveal = getStrokeReveal(strokeSet, progress);
   const [vx, vy, vw, vh] = strokeSet.viewBox;
-  const brush = Math.max(4.5, Math.min(strokeSet.width, strokeSet.height) * 0.028);
+  const brush = Math.max(5, Math.min(strokeSet.width, strokeSet.height) * 0.03);
   const maskId = `draw-mask-${scene.id}`;
   const sketchUrl = scene.sketchUrl;
 
   return (
     <div className="stroke-sketch" style={{ transform: scene.flip ? "scaleX(-1)" : undefined }}>
-      <svg
-        className="stroke-drawing"
-        viewBox={`${vx} ${vy} ${vw} ${vh}`}
-        preserveAspectRatio="xMidYMid meet"
-      >
+      <svg className="stroke-drawing" viewBox={`${vx} ${vy} ${vw} ${vh}`} preserveAspectRatio="xMidYMid meet">
         <defs>
           <mask id={maskId} maskUnits="userSpaceOnUse" x={vx} y={vy} width={vw} height={vh}>
             <rect x={vx} y={vy} width={vw} height={vh} fill="black" />
@@ -79,20 +76,6 @@ function StrokeSketch({
           </mask>
         </defs>
 
-        {/* Soft guide of finished ink while drawing — very faint */}
-        {sketchUrl && (
-          <image
-            href={sketchUrl}
-            x={vx}
-            y={vy}
-            width={vw}
-            height={vh}
-            opacity={0.04}
-            preserveAspectRatio="xMidYMid meet"
-          />
-        )}
-
-        {/* The photo drawing, painted on stroke by stroke */}
         {sketchUrl ? (
           <image
             href={sketchUrl}
@@ -102,41 +85,56 @@ function StrokeSketch({
             height={vh}
             mask={`url(#${maskId})`}
             preserveAspectRatio="xMidYMid meet"
-            style={{ filter: "contrast(1.15)" }}
           />
-        ) : (
-          strokeSet.strokes.map((stroke, i) => (
-            <path
-              key={`p-${i}`}
-              d={stroke.d}
-              fill="none"
-              stroke="#18201d"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={Math.max(1.8, brush * 0.45)}
-              pathLength="100"
-              strokeDasharray="100"
-              strokeDashoffset={reveal.dashFor(i)}
-            />
-          ))
-        )}
+        ) : null}
 
-        {/* Active marker tip ink so the current stroke reads as wet */}
-        {reveal.isDrawing && strokeSet.strokes[reveal.strokeIndex] && (
+        {/* Colored marker overlay — dry-erase accents like real Draw My Life boards */}
+        {strokeSet.strokes.map((stroke, i) => (
           <path
-            d={strokeSet.strokes[reveal.strokeIndex].d}
+            key={`c-${i}`}
+            d={stroke.d}
             fill="none"
-            stroke="#18201d"
+            stroke={markerColorForStroke(i, scene.accent)}
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={Math.max(1.4, brush * 0.35)}
+            strokeWidth={Math.max(1.6, brush * (sketchUrl ? 0.28 : 0.45))}
             pathLength="100"
             strokeDasharray="100"
-            strokeDashoffset={reveal.dashFor(reveal.strokeIndex)}
-            opacity={0.55}
+            strokeDashoffset={reveal.dashFor(i)}
+            opacity={sketchUrl ? 0.4 : 1}
           />
-        )}
+        ))}
       </svg>
+    </div>
+  );
+}
+
+function MarkerTip({
+  x,
+  y,
+  ink,
+  flip,
+  visible,
+}: {
+  x: number;
+  y: number;
+  ink: string;
+  flip?: boolean;
+  visible: boolean;
+}) {
+  if (!visible) return null;
+  return (
+    <div
+      className="marker-tip"
+      style={{
+        left: `${x}%`,
+        top: `${y}%`,
+        transform: `rotate(${flip ? -24 : 28}deg)`,
+        opacity: visible ? 1 : 0,
+      }}
+    >
+      <i style={{ background: markerBarrelForInk(ink) }} />
+      <b style={{ borderTopColor: ink }} />
     </div>
   );
 }
@@ -166,29 +164,31 @@ function useSceneFrame(project: Project, selected?: number) {
 
 export default function SketchVideo({ project, selected }: { project: Project; selected?: number }) {
   const { scene, localFrame, sceneIndex, fps } = useSceneFrame(project, selected);
-  if (!scene) return <AbsoluteFill style={{ background: "#f8f7f1" }} />;
+  if (!scene) return <AbsoluteFill style={{ background: "#f7f5ef" }} />;
 
-  const drawWindow = Math.min(scene.duration * fps * 0.72, fps * 5.2);
+  const drawWindow = Math.min(scene.duration * fps * 0.78, fps * 5.5);
   const progress = interpolate(localFrame, [0, drawWindow], [0, 100], { extrapolateRight: "clamp" });
   const strokeSet = scene.strokes;
   const reveal = getStrokeReveal(strokeSet, progress);
-  const captionIn = interpolate(localFrame, [fps * 1.35, fps * 1.85], [0, 1], {
+  const captionIn = interpolate(localFrame, [fps * 1.2, fps * 1.7], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const handX = reveal.tipPercent
-    ? Math.min(88, Math.max(8, reveal.tipPercent.x + (scene.flip ? 4 : -2)))
+  const tipX = reveal.tipPercent
+    ? Math.min(90, Math.max(6, reveal.tipPercent.x))
     : 20 + (progress % 25) * 2.2;
-  const handY = reveal.tipPercent
-    ? Math.min(82, Math.max(10, reveal.tipPercent.y - 2))
+  const tipY = reveal.tipPercent
+    ? Math.min(86, Math.max(8, reveal.tipPercent.y))
     : 22 + Math.floor(progress / 25) * 14;
 
+  const activeInk = markerColorForStroke(reveal.strokeIndex, scene.accent);
   const drawingSound = scene.effects.marker && reveal.isDrawing && !!strokeSet?.strokes.length;
-  const pencilVolume = project.music === "none" ? 0.55 : 0.42;
+  // Louder — previous ~0.4 was nearly inaudible against silence
+  const pencilVolume = 0.95;
 
   return (
-    <AbsoluteFill className="whiteboard-video short-film" style={{ color: "#18201d" }}>
+    <AbsoluteFill className="whiteboard-video short-film" style={{ color: "#1a1a1a" }}>
       {scene.effects.paper && (
         <>
           <div className="erase-ghost ghost-one" />
@@ -211,23 +211,12 @@ export default function SketchVideo({ project, selected }: { project: Project; s
         ) : (
           <MarkerDrawing scene={scene} progress={progress} />
         )}
-        <div className="scribble-label" style={{ opacity: Math.max(0, (progress - 70) / 18) }}>
+        <div className="scribble-label" style={{ opacity: Math.max(0, (progress - 68) / 18) }}>
           {scene.title}
         </div>
       </div>
-      {scene.effects.marker && progress < 98 && (
-        <div
-          className="drawing-hand"
-          style={{
-            left: `${handX}%`,
-            top: `${handY}%`,
-            transform: `rotate(${scene.flip ? -22 : 16}deg)`,
-            opacity: reveal.isDrawing ? 1 : 0.35,
-          }}
-        >
-          <span />
-          <i />
-        </div>
+      {scene.effects.marker && (
+        <MarkerTip x={tipX} y={tipY} ink={activeInk} flip={scene.flip} visible={reveal.isDrawing && progress < 98} />
       )}
       <div
         className="film-caption short-caption"
@@ -235,14 +224,11 @@ export default function SketchVideo({ project, selected }: { project: Project; s
       >
         <span>{scene.caption.text}</span>
       </div>
-      {drawingSound && (
-        <Audio src="/sounds/pencil-scratch.wav" volume={pencilVolume} loop startFrom={0} />
-      )}
+      {drawingSound && <Audio src="/sounds/pencil-scratch.wav" volume={pencilVolume} loop startFrom={0} />}
     </AbsoluteFill>
   );
 }
 
-/** Last-resort image reveal if strokes failed — still paints in short marker passes. */
 function FallbackImageSketch({ scene, progress }: { scene: Scene; progress: number }) {
   const bands = 12;
   return (

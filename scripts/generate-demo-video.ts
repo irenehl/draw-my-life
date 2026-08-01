@@ -5,6 +5,7 @@ import fs from "fs/promises";
 import { spawn } from "child_process";
 import { createSketchAssets } from "../lib/line-art";
 import { renderStrokeFrames } from "../lib/render-strokes";
+import { MARKER } from "../lib/marker-style";
 
 function run(args: string[]) {
   return new Promise<void>((resolve, reject) => {
@@ -26,60 +27,78 @@ async function main() {
   await fs.mkdir(path.join(process.cwd(), "public/exports"), { recursive: true });
   await fs.mkdir("/opt/cursor/artifacts", { recursive: true });
 
+  // Classic Draw My Life: stick figures + colored dry-erase icons on whiteboard
   const scenes = [
     {
       photo: await makeDrawing(
         "demo-hook.png",
-        `<svg width="520" height="640" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100%" height="100%" fill="white"/>
-          <circle cx="260" cy="170" r="95" fill="none" stroke="black" stroke-width="10"/>
-          <circle cx="225" cy="155" r="8" fill="black"/>
-          <circle cx="295" cy="155" r="8" fill="black"/>
-          <path d="M220 210 Q260 245 300 210" fill="none" stroke="black" stroke-width="8"/>
-          <line x1="260" y1="265" x2="260" y2="430" stroke="black" stroke-width="10"/>
-          <line x1="160" y1="330" x2="360" y2="330" stroke="black" stroke-width="10"/>
-          <line x1="260" y1="430" x2="180" y2="560" stroke="black" stroke-width="10"/>
-          <line x1="260" y1="430" x2="340" y2="560" stroke="black" stroke-width="10"/>
+        `<svg width="560" height="700" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="${MARKER.board}"/>
+          <circle cx="280" cy="150" r="70" fill="none" stroke="${MARKER.black}" stroke-width="8"/>
+          <circle cx="255" cy="140" r="7" fill="${MARKER.black}"/>
+          <circle cx="305" cy="140" r="7" fill="${MARKER.black}"/>
+          <path d="M250 175 Q280 195 310 175" fill="none" stroke="${MARKER.black}" stroke-width="6"/>
+          <line x1="280" y1="220" x2="280" y2="380" stroke="${MARKER.black}" stroke-width="8"/>
+          <line x1="180" y1="280" x2="380" y2="280" stroke="${MARKER.black}" stroke-width="8"/>
+          <line x1="280" y1="380" x2="210" y2="520" stroke="${MARKER.black}" stroke-width="8"/>
+          <line x1="280" y1="380" x2="350" y2="520" stroke="${MARKER.black}" stroke-width="8"/>
+          <path d="M390 120 C410 90 450 90 460 120 C470 90 510 90 530 120 C530 160 460 210 460 210 C460 210 390 160 390 120Z" fill="${MARKER.red}" stroke="${MARKER.red}" stroke-width="3"/>
+          <text x="280" y="620" text-anchor="middle" font-family="Comic Sans MS, cursive" font-size="42" fill="${MARKER.blue}">born!</text>
         </svg>`,
       ),
       duration: 5,
-      title: "The hook",
+      title: "The beginning",
       caption: "I thought I knew exactly where life was taking me.",
       role: "hook",
+      accent: MARKER.red,
     },
     {
       photo: await makeDrawing(
         "demo-turn.png",
-        `<svg width="520" height="640" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100%" height="100%" fill="white"/>
-          <path d="M70 420 C140 250 220 180 260 180 C300 180 380 250 450 420" fill="none" stroke="black" stroke-width="10"/>
-          <circle cx="260" cy="250" r="55" fill="none" stroke="black" stroke-width="9"/>
-          <line x1="120" y1="500" x2="400" y2="500" stroke="black" stroke-width="8"/>
-          <path d="M200 360 L260 470 L320 360" fill="none" stroke="black" stroke-width="9"/>
+        `<svg width="560" height="700" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="${MARKER.board}"/>
+          <circle cx="220" cy="180" r="55" fill="none" stroke="${MARKER.black}" stroke-width="7"/>
+          <line x1="220" y1="235" x2="220" y2="360" stroke="${MARKER.black}" stroke-width="7"/>
+          <line x1="160" y1="290" x2="280" y2="290" stroke="${MARKER.black}" stroke-width="7"/>
+          <line x1="220" y1="360" x2="170" y2="470" stroke="${MARKER.black}" stroke-width="7"/>
+          <line x1="220" y1="360" x2="270" y2="470" stroke="${MARKER.black}" stroke-width="7"/>
+          <path d="M300 200 L480 140" fill="none" stroke="${MARKER.orange}" stroke-width="10" stroke-linecap="round"/>
+          <polygon points="480,140 445,125 455,165" fill="${MARKER.orange}"/>
+          <circle cx="380" cy="320" r="48" fill="none" stroke="${MARKER.blue}" stroke-width="8"/>
+          <text x="380" y="335" text-anchor="middle" font-family="Comic Sans MS, cursive" font-size="36" fill="${MARKER.blue}">?</text>
+          <path d="M160 540 Q220 500 280 540 Q340 580 400 540" fill="none" stroke="${MARKER.red}" stroke-width="7"/>
+          <text x="280" y="640" text-anchor="middle" font-family="Comic Sans MS, cursive" font-size="38" fill="${MARKER.red}">the turn</text>
         </svg>`,
       ),
       duration: 5,
-      title: "The turn",
+      title: "Everything changed",
       caption: "Then one small moment changed everything.",
       role: "turn",
+      accent: MARKER.orange,
     },
     {
       photo: await makeDrawing(
         "demo-close.png",
-        `<svg width="520" height="640" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100%" height="100%" fill="white"/>
-          <circle cx="260" cy="220" r="110" fill="none" stroke="black" stroke-width="10"/>
-          <path d="M170 210 Q210 160 260 210 Q310 260 350 210" fill="none" stroke="black" stroke-width="9"/>
-          <line x1="160" y1="380" x2="360" y2="380" stroke="black" stroke-width="10"/>
-          <line x1="200" y1="380" x2="200" y2="520" stroke="black" stroke-width="10"/>
-          <line x1="320" y1="380" x2="320" y2="520" stroke="black" stroke-width="10"/>
-          <path d="M140 560 Q260 600 380 560" fill="none" stroke="black" stroke-width="8"/>
+        `<svg width="560" height="700" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="${MARKER.board}"/>
+          <circle cx="280" cy="170" r="65" fill="none" stroke="${MARKER.black}" stroke-width="8"/>
+          <circle cx="258" cy="160" r="6" fill="${MARKER.black}"/>
+          <circle cx="302" cy="160" r="6" fill="${MARKER.black}"/>
+          <path d="M250 190 Q280 215 310 190" fill="none" stroke="${MARKER.black}" stroke-width="6"/>
+          <line x1="280" y1="235" x2="280" y2="380" stroke="${MARKER.black}" stroke-width="8"/>
+          <line x1="190" y1="300" x2="370" y2="300" stroke="${MARKER.black}" stroke-width="8"/>
+          <line x1="280" y1="380" x2="215" y2="510" stroke="${MARKER.black}" stroke-width="8"/>
+          <line x1="280" y1="380" x2="345" y2="510" stroke="${MARKER.black}" stroke-width="8"/>
+          <path d="M120 120 L145 175 L205 175 L155 210 L175 265 L120 230 L65 265 L85 210 L35 175 L95 175 Z" fill="${MARKER.orange}" stroke="${MARKER.orange}"/>
+          <path d="M400 400 L430 460 L500 460 L445 500 L470 560 L400 525 L330 560 L355 500 L300 460 L370 460 Z" fill="${MARKER.green}" stroke="${MARKER.green}"/>
+          <text x="280" y="640" text-anchor="middle" font-family="Comic Sans MS, cursive" font-size="40" fill="${MARKER.green}">thank you ♥</text>
         </svg>`,
       ),
       duration: 5,
       title: "What stayed",
       caption: "Looking back, that detour became the beginning I needed.",
       role: "close",
+      accent: MARKER.green,
     },
   ];
 
@@ -89,7 +108,12 @@ async function main() {
 
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i];
-    const assets = await createSketchAssets(scene.photo);
+    // Bust cache for colorful redraws
+    const stem = path.basename(scene.photo).replace(path.extname(scene.photo), "");
+    await fs.rm(path.join(process.cwd(), "public/uploads", `${stem}-line-art-v5.png`), { force: true });
+    await fs.rm(path.join(process.cwd(), "public/uploads", `${stem}-strokes-v5.json`), { force: true });
+
+    const assets = await createSketchAssets(scene.photo, { accent: scene.accent });
     if (!assets) throw new Error(`No assets for ${scene.photo}`);
     const framesDir = path.join(tempDir, `frames-${i}`);
     const sketchPath = path.join(process.cwd(), "public", assets.sketchUrl.replace(/^\//, ""));
@@ -99,12 +123,13 @@ async function main() {
       durationSec: scene.duration,
       fps: 30,
       sketchPath,
+      accent: scene.accent,
       caption: scene.caption,
       title: scene.title,
       sceneLabel: `${String(i + 1).padStart(2, "0")} · ${scene.role}`,
     });
     const segment = path.join(tempDir, `seg-${i}.mp4`);
-    const drawSec = Math.min(5.2, scene.duration * 0.72);
+    const drawSec = Math.min(5.5, scene.duration * 0.78);
     await run([
       "-y",
       "-framerate",
@@ -116,7 +141,7 @@ async function main() {
       "-i",
       pencil,
       "-filter_complex",
-      `[1:a]volume=0.5,afade=t=out:st=${Math.max(0.2, drawSec - 0.25)}:d=0.25,apad=whole_dur=${scene.duration}[a]`,
+      `[1:a]volume=2.6,afade=t=out:st=${Math.max(0.2, drawSec - 0.2)}:d=0.2,alimiter=limit=0.95,apad=whole_dur=${scene.duration}[a]`,
       "-map",
       "0:v",
       "-map",
@@ -134,7 +159,7 @@ async function main() {
       "-c:a",
       "aac",
       "-b:a",
-      "160k",
+      "192k",
       segment,
     ]);
     segments.push(segment);
